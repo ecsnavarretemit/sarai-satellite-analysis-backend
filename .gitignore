@@ -112,5 +112,6 @@ tags
 data
 _scripts
 earth_engine/settings.py
+static/earth-engine
 
 
