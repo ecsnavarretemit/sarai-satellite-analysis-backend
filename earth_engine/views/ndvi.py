@@ -7,6 +7,7 @@
 from __future__ import unicode_literals
 
 import os
+import json
 import random
 import string
 import shutil
@@ -79,6 +80,9 @@ def download_image_series(request, startdate, enddate):
     # assemble the path where the downloaded files cound be saved
     tmp_path = os.path.join(os.getcwd(), 'data/tmp/ee-download', download_hash)
 
+    # assemble the path where the processed images will be stored
+    processed_image_folder = '%s/earth-engine/%s' % (settings.STATIC_ROOT, download_hash)
+
     if not os.path.exists(tmp_path):
         os.makedirs(tmp_path)
 
@@ -134,7 +138,6 @@ def download_image_series(request, startdate, enddate):
         blue = Image.open('%s/%s.vis-blue.tif' % (extracted_folder_path, basename)).convert('L')
         green = Image.open('%s/%s.vis-green.tif' % (extracted_folder_path, basename)).convert('L')
 
-        processed_image_folder = '%s/earth-engine/%s' % (settings.STATIC_ROOT, download_hash)
         processed_image_path = os.path.join(processed_image_folder, image['from'] + '.jpg')
 
         # create the folder inside the static folder
@@ -147,6 +150,16 @@ def download_image_series(request, startdate, enddate):
 
         # asseble the the url pointing to the image
         processed_images[image['from']] = request.META['HTTP_HOST'] + string.replace(processed_image_path, os.getcwd(), '')
+
+    # save some metadata for fetching the description later.
+    # This can be further improved by saving this to a database.
+    with open(os.path.join(processed_image_folder, 'metadata.json'), 'w') as metadata:
+        json.dump({
+            'satellite': satellite,
+            'date_from': startdate,
+            'date_to': enddate,
+            'date_ranges': date_ranges
+        }, metadata)
 
     # delete the tmp folder for the downloaded image
     shutil.rmtree(tmp_path)
