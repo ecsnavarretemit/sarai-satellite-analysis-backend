@@ -165,19 +165,21 @@ def download_image_series(request, startdate, enddate):
 # [View Helpers] ::start
 #===================================================
 
-def ndvi_landsat_mask(image):
-    hansen_image = ee.Image('UMD/hansen/global_forest_change_2013')
-    data = hansen_image.select('datamask')
-    mask = data.eq(1)
+def ndvi_mask(satellite):
+    def mask(image):
+        hansen_image = ee.Image('UMD/hansen/global_forest_change_2013')
+        data = hansen_image.select('datamask')
+        mask = data.eq(1)
 
-    return image.updateMask(mask)
+        # generate different masks for different satellite data sources.
+        if satellite == 'landsat-8':
+            derived_mask = image.updateMask(mask)
+        elif satellite == 'sentinel-2':
+            derived_mask = image.select().addBands(image.normalizedDifference(['B8', 'B4'])).updateMask(mask)
 
-def ndvi_sentinel_mask(image):
-    hansen_image = ee.Image('UMD/hansen/global_forest_change_2013')
-    data = hansen_image.select('datamask')
-    mask = data.eq(1)
+        return derived_mask
 
-    return image.select().addBands(image.normalizedDifference(['B8', 'B4'])).updateMask(mask)
+    return mask
 
 def get_province_geometry(province):
     ft = "ft:%s" % ee_settings.PROVINCES_FUSION_TABLES['LOCATION_METADATA_FUSION_TABLE']
@@ -236,7 +238,7 @@ def process_landsat8_image_series(start_date, end_date, clipping_geometry=None):
     geometry = get_par_geometry()
 
     image_collection = ee.ImageCollection('LANDSAT/LC8_L1T_8DAY_NDVI')
-    filtered = image_collection.filterDate(start_date, end_date).filterBounds(geometry).map(ndvi_landsat_mask)
+    filtered = image_collection.filterDate(start_date, end_date).filterBounds(geometry).map(ndvi_mask('landsat-8'))
 
     # perform temporal reduction
     reduced = filtered.mean()
@@ -254,7 +256,7 @@ def process_sentinel2_image_series(start_date, end_date, clipping_geometry):
     geometry = get_par_geometry()
 
     image_collection = ee.ImageCollection('COPERNICUS/S2')
-    filtered = image_collection.select(['B4', 'B8']).filterDate(start_date, end_date).filterBounds(geometry).map(ndvi_sentinel_mask)
+    filtered = image_collection.select(['B4', 'B8']).filterDate(start_date, end_date).filterBounds(geometry).map(ndvi_mask('sentinel-2'))
 
     # perform temporal reduction
     reduced = filtered.mean()
