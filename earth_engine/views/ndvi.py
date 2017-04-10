@@ -82,14 +82,20 @@ def download_image_series(request, startdate, enddate):
     if not os.path.exists(tmp_path):
         os.makedirs(tmp_path)
 
+    # get the geometry of province
+    resolved_province = None
+    if province is not None:
+        resolved_province = get_province_geometry(province)
+
     images = []
     for date_range in date_ranges:
         # perform satellite image processing
-        image = process_landsat8_image_series(date_range['from'], date_range['to'])
+        image = process_landsat8_image_series(date_range['from'], date_range['to'], resolved_province)
 
         # close the download settings and modify it
         dl_settings = download_settings.copy()
         dl_settings['name'] = '%s-%s-%s' % (download_settings['name'], date_range['from'], date_range['to'])
+        dl_settings['region'] = resolved_province.getInfo()['coordinates']
 
         download_url = image.getDownloadURL(dl_settings)
 
@@ -161,16 +167,13 @@ def ndvi_landsat_mask(image):
 
     return image.updateMask(mask)
 
-def image_clipper(province):
-    def clipper(image):
-        ft = "ft:%s" % ee_settings.PROVINCES_FUSION_TABLES['LOCATION_METADATA_FUSION_TABLE']
-        province_ft = ee.FeatureCollection(ft)
+def get_province_geometry(province):
+    ft = "ft:%s" % ee_settings.PROVINCES_FUSION_TABLES['LOCATION_METADATA_FUSION_TABLE']
+    province_ft = ee.FeatureCollection(ft)
 
-        found_province = ee.Filter.eq(ee_settings.PROVINCES_FUSION_TABLES['LOCATION_FUSION_TABLE_NAME_COLUMN'], province)
+    found_province = ee.Filter.eq(ee_settings.PROVINCES_FUSION_TABLES['LOCATION_FUSION_TABLE_NAME_COLUMN'], province)
 
-        return image.clip(province_ft.filter(found_province).geometry())
-
-    return clipper
+    return province_ft.filter(found_province).geometry()
 
 def get_par_geometry():
     geometric_bounds = ee.List([
@@ -217,13 +220,21 @@ def get_date_ranges_list(start_date, end_date, interval):
 
     return date_ranges
 
-def process_landsat8_image_series(start_date, end_date):
+def process_landsat8_image_series(start_date, end_date, clipping_geometry=None):
     geometry = get_par_geometry()
 
     image_collection = ee.ImageCollection('LANDSAT/LC8_L1T_8DAY_NDVI')
     filtered = image_collection.filterDate(start_date, end_date).filterBounds(geometry).map(ndvi_landsat_mask)
 
-    return filtered.mean().visualize(['NDVI'], None, None, 0, 1, None, None, [
+    # perform temporal reduction
+    reduced = filtered.mean()
+
+    # clip the image if clipping_geometry is provided
+    if clipping_geometry is not None:
+        reduced = reduced.clip(clipping_geometry)
+
+    # return the visualized instance of the image
+    return reduced.visualize(['NDVI'], None, None, 0, 1, None, None, [
         'FFFFFF', 'CE7E45', 'FCD163', '66A000', '207401', '056201', '004C00', '023B01', '012E01', '011301'
     ])
 
