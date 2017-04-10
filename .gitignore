@@ -66,13 +66,11 @@ coverage.xml
 # Django stuff:
 *.log
 local_settings.py
+app/settings.py
 
 # Flask stuff:
 instance/
 .webassets-cache
-
-# Django stuff
-app/settings.py
 
 # Scrapy stuff:
 .scrapy
@@ -113,5 +111,6 @@ tags
 # Project Exclusion
 data
 _scripts
+earth_engine/settings.py
 
 

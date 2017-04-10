@@ -1,0 +1,19 @@
+# settings.py
+#
+# Copyright(c) Exequiel Ceasar Navarrete <esnavarrete1@up.edu.ph>
+# Licensed under MIT
+# Version 0.0.0
+
+from django.conf import settings
+
+EARTH_ENGINE_API = {
+    'ACCOUNT': 'email@google.iam.gserviceaccount.com',
+    'PRIVATE_KEY': '',
+    'KEY_SECRET': '',
+    'SCOPES': [
+        'https://www.googleapis.com/auth/earthengine',
+        'https://www.googleapis.com/auth/devstorage.read_write'
+    ]
+}
+
+
