@@ -5,18 +5,20 @@
 # Version 0.0.0
 
 from __future__ import unicode_literals
+
+import os
+import random
+import string
+import shutil
+import zipfile
+import urllib2
+import hashlib
+import ee
 from django.http import JsonResponse
 from django.conf import settings
 from earth_engine import EE_CREDENTIALS, settings as ee_settings
 from datetime import datetime, timedelta
 from PIL import Image
-import zipfile
-import urllib2
-import hashlib
-import random
-import string
-import os
-import ee
 
 #===================================================
 # [Views] ::start
@@ -132,7 +134,11 @@ def download_image_series(request, startdate, enddate):
         out = Image.merge("RGB", (red, green, blue))
         out.save(processed_image_path)
 
-        processed_images[image['from']] = processed_image_path
+        # asseble the the url pointing to the image
+        processed_images[image['from']] = request.META['HTTP_HOST'] + string.replace(processed_image_path, os.getcwd(), '')
+
+    # delete the tmp folder for the downloaded image
+    shutil.rmtree(tmp_path)
 
     return JsonResponse({
         'success': True,
