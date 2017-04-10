@@ -64,7 +64,7 @@ def download_image_series(request, startdate, enddate):
     ee.Initialize(EE_CREDENTIALS)
 
     download_settings = {
-        'name': 'ndvi-landsat8',
+        'name': 'ndvi-' + satellite,
         'crs': 'EPSG:4326',
         'dimensions': dimensions,
         'region': get_par_geometry().getInfo()['coordinates']
@@ -89,12 +89,17 @@ def download_image_series(request, startdate, enddate):
 
     images = []
     for date_range in date_ranges:
-        # perform satellite image processing
-        image = process_landsat8_image_series(date_range['from'], date_range['to'], resolved_province)
+        if satellite == 'landsat-8':
+            # perform satellite image processing
+            image = process_landsat8_image_series(date_range['from'], date_range['to'], resolved_province)
+        elif satellite == 'sentinel-2':
+            image = process_sentinel2_image_series(date_range['from'], date_range['to'], resolved_province)
+        else:
+            pass
 
         # close the download settings and modify it
         dl_settings = download_settings.copy()
-        dl_settings['name'] = '%s-%s-%s' % (download_settings['name'], date_range['from'], date_range['to'])
+        dl_settings['name'] = 'ndvi-%s-%s-%s' % (satellite, date_range['from'], date_range['to'])
         dl_settings['region'] = resolved_province.getInfo()['coordinates']
 
         download_url = image.getDownloadURL(dl_settings)
@@ -167,6 +172,13 @@ def ndvi_landsat_mask(image):
 
     return image.updateMask(mask)
 
+def ndvi_sentinel_mask(image):
+    hansen_image = ee.Image('UMD/hansen/global_forest_change_2013')
+    data = hansen_image.select('datamask')
+    mask = data.eq(1)
+
+    return image.select().addBands(image.normalizedDifference(['B8', 'B4'])).updateMask(mask)
+
 def get_province_geometry(province):
     ft = "ft:%s" % ee_settings.PROVINCES_FUSION_TABLES['LOCATION_METADATA_FUSION_TABLE']
     province_ft = ee.FeatureCollection(ft)
@@ -235,6 +247,24 @@ def process_landsat8_image_series(start_date, end_date, clipping_geometry=None):
 
     # return the visualized instance of the image
     return reduced.visualize(['NDVI'], None, None, 0, 1, None, None, [
+        'FFFFFF', 'CE7E45', 'FCD163', '66A000', '207401', '056201', '004C00', '023B01', '012E01', '011301'
+    ])
+
+def process_sentinel2_image_series(start_date, end_date, clipping_geometry):
+    geometry = get_par_geometry()
+
+    image_collection = ee.ImageCollection('COPERNICUS/S2')
+    filtered = image_collection.select(['B4', 'B8']).filterDate(start_date, end_date).filterBounds(geometry).map(ndvi_sentinel_mask)
+
+    # perform temporal reduction
+    reduced = filtered.mean()
+
+    # clip the image if clipping_geometry is provided
+    if clipping_geometry is not None:
+        reduced = reduced.clip(clipping_geometry)
+
+    # return the visualized instance of the image
+    return reduced.visualize(['nd'], None, None, 0, 1, None, None, [
         'FFFFFF', 'CE7E45', 'FCD163', '66A000', '207401', '056201', '004C00', '023B01', '012E01', '011301'
     ])
 
