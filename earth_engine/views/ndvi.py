@@ -43,12 +43,12 @@ def download_image_series(request, startdate, enddate):
     # default value for landsat 8 satellite interval
     satellite_interval = 16
 
-    # default value for http status number
-    response_status = 200
-
-    # change the response_status to 400 if the satellite contains invalid value
+    # return immediately if an invalid value for satellite is provided
     if not satellite in satellites:
-        response_status = 400
+        return JsonResponse({
+            'success': False,
+            'message': 'Invalid value for satellite. Allowed values are %s' % (', '.join(satellites))
+        }, status=400)
 
     if satellite == 'sentinel-1':
         satellite_interval = 12
@@ -93,8 +93,8 @@ def download_image_series(request, startdate, enddate):
 
     images = []
     for date_range in date_ranges:
+        # perform satellite image processing
         if satellite == 'landsat-8':
-            # perform satellite image processing
             image = process_landsat8_image_series(date_range['from'], date_range['to'], resolved_province)
         elif satellite == 'sentinel-2':
             image = process_sentinel2_image_series(date_range['from'], date_range['to'], resolved_province)
@@ -167,7 +167,7 @@ def download_image_series(request, startdate, enddate):
     return JsonResponse({
         'success': True,
         'images': processed_images
-    }, status=response_status)
+    })
 
 #===================================================
 # [Views] ::end
