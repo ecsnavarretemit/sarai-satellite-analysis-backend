@@ -16,6 +16,11 @@ EARTH_ENGINE_API = {
     ]
 }
 
+PROVINCES_FUSION_TABLES = {
+    'LOCATION_METADATA_FUSION_TABLE': '',
+    'LOCATION_FUSION_TABLE_NAME_COLUMN': ''
+}
+
 NDVI = {
     'IMAGE_EXTRACTION': {
         'TMP_PATH': os.path.join(os.getcwd(), 'data/tmp/ee-download'),
