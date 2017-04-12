@@ -88,6 +88,12 @@ def download_image_series(request, startdate, enddate):
 
         truncated = True
 
+    # assemble the base url for the images
+    scheme_and_host = '%s://%s' % ('http', request.META['HTTP_HOST'])
+
+    if request.is_secure():
+        scheme_and_host = '%s://%s' % ('https', request.META['HTTP_HOST'])
+
     if os.path.exists(processed_image_folder):
         images_glob = os.path.join(processed_image_folder, '*.' + ee_settings.NDVI['IMAGE_EXTRACTION']['IMAGE_FORMAT'])
 
@@ -98,7 +104,7 @@ def download_image_series(request, startdate, enddate):
 
             processed_images.append({
                 'date': basename,
-                'url': request.META['HTTP_HOST'] + string.replace(image, os.getcwd(), '')
+                'url': scheme_and_host + string.replace(image, os.getcwd(), '')
             })
     else:
         # split the dimensions request parameter and cast to integer
@@ -185,7 +191,7 @@ def download_image_series(request, startdate, enddate):
             # asseble the the url pointing to the image
             processed_images.append({
                 'date': image['from'],
-                'url': request.META['HTTP_HOST'] + string.replace(processed_image_path, os.getcwd(), '')
+                'url': scheme_and_host + string.replace(processed_image_path, os.getcwd(), '')
             })
 
         # save some metadata for fetching the description later.
