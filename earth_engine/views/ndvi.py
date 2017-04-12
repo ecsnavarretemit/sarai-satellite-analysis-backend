@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 
 import os
 import json
+import glob
 import random
 import string
 import shutil
@@ -50,119 +51,139 @@ def download_image_series(request, startdate, enddate):
             'message': 'Invalid value for satellite. Allowed values are %s' % (', '.join(satellites))
         }, status=400)
 
-    if satellite == 'sentinel-1':
-        satellite_interval = 12
-    elif satellite == 'sentinel-2':
-        satellite_interval = 10
+    # assemble the string to be hashed for use in image and tmp folder name
+    province_str = ''
+    if province is not None:
+        province_str = '-' + province
 
-    # get the list of possible date ranges starting from the start date to end date
-    date_ranges = get_date_ranges_list(startdate, enddate, satellite_interval)
-
-    # split the dimensions request parameter and cast to integer
-    dimensions = map(int, dimensions.split('x'))
-
-    # initialize connection to the earth engine
-    ee.Initialize(EE_CREDENTIALS)
-
-    download_settings = {
-        'name': 'ndvi-' + satellite,
-        'crs': 'EPSG:4326',
-        'dimensions': dimensions,
-        'region': get_par_geometry().getInfo()['coordinates']
-    }
-
-    # create random string in n chars length. n = 10
-    random_str = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(10))
+    secret_str = '%s-%s-%s-%s%s' % (startdate, enddate, satellite, dimensions, province_str)
 
     # concatenate the start date, end date and the random string and get the SHA 224 hash of it
-    download_hash = hashlib.sha224('%s-%s-%s' % (startdate, enddate, random_str)).hexdigest()
-
-    # assemble the path where the downloaded files cound be saved
-    tmp_path = os.path.join(os.getcwd(), 'data/tmp/ee-download', download_hash)
+    download_hash = hashlib.sha224(secret_str).hexdigest()
 
     # assemble the path where the processed images will be stored
-    processed_image_folder = '%s/earth-engine/%s' % (settings.STATIC_ROOT, download_hash)
+    processed_image_folder = os.path.join(settings.STATIC_ROOT, 'earth-engine', download_hash)
+    processed_images = []
 
-    if not os.path.exists(tmp_path):
-        os.makedirs(tmp_path)
+    if os.path.exists(processed_image_folder):
+        # fetch all images in the directory and append it to the processed images list
+        for image in glob.glob(os.path.join(processed_image_folder, '*.jpg')):
+            basename = os.path.splitext(image)[0]
+            basename = os.path.basename(basename)
 
-    # get the geometry of province
-    resolved_province = None
-    if province is not None:
-        resolved_province = get_province_geometry(province)
-
-    images = []
-    for date_range in date_ranges:
-        # perform satellite image processing
-        if satellite == 'landsat-8':
-            image = process_landsat8_image_series(date_range['from'], date_range['to'], resolved_province)
+            processed_images.append({
+                'date': basename,
+                'url': request.META['HTTP_HOST'] + string.replace(image, os.getcwd(), '')
+            })
+    else:
+        # modify the day intervals of the satellite
+        if satellite == 'sentinel-1':
+            satellite_interval = 12
         elif satellite == 'sentinel-2':
-            image = process_sentinel2_image_series(date_range['from'], date_range['to'], resolved_province)
-        else:
-            pass
+            satellite_interval = 10
 
-        # close the download settings and modify it
-        dl_settings = download_settings.copy()
-        dl_settings['name'] = 'ndvi-%s-%s-%s' % (satellite, date_range['from'], date_range['to'])
-        dl_settings['region'] = resolved_province.getInfo()['coordinates']
+        # get the list of possible date ranges starting from the start date to end date
+        date_ranges = get_date_ranges_list(startdate, enddate, satellite_interval)
 
-        download_url = image.getDownloadURL(dl_settings)
+        # split the dimensions request parameter and cast to integer
+        dimensions = map(int, dimensions.split('x'))
 
-        downloaded_filename = os.path.join(tmp_path, dl_settings['name'] + '.zip')
+        # initialize connection to the earth engine
+        ee.Initialize(EE_CREDENTIALS)
 
-        # download the files from the download url
-        zip_file = urllib2.urlopen(download_url)
-        with open(downloaded_filename, 'wb') as output:
-            output.write(zip_file.read())
+        download_settings = {
+            'name': 'ndvi-' + satellite,
+            'crs': 'EPSG:4326',
+            'dimensions': dimensions,
+            'region': get_par_geometry().getInfo()['coordinates']
+        }
 
-        images.append({
-            'filename': downloaded_filename,
-            'from': date_range['from'],
-            'to': date_range['to']
-        })
+        # assemble the path where the downloaded files cound be saved
+        tmp_path = os.path.join(os.getcwd(), 'data/tmp/ee-download', download_hash)
 
-    # unzip all downloaded files
-    processed_images = {}
-    for image in images:
-        basename = os.path.splitext(image['filename'])[0]
-        basename = os.path.basename(basename)
+        if not os.path.exists(tmp_path):
+            os.makedirs(tmp_path)
 
-        extracted_folder_path = '%s/%s-extracted' % (tmp_path, basename)
+        # get the geometry of province and modify the region settings
+        resolved_province = None
+        if province is not None:
+            resolved_province = get_province_geometry(province)
 
-        # extract the zip file in to the path specified
-        with zipfile.ZipFile(image['filename'], 'r') as zip_ref:
-            zip_ref.extractall(extracted_folder_path)
+            download_settings['region'] = resolved_province.getInfo()['coordinates']
 
-        # find all R, G and B images, combine them, and save to the static directory
-        red = Image.open('%s/%s.vis-red.tif' % (extracted_folder_path, basename)).convert('L')
-        blue = Image.open('%s/%s.vis-blue.tif' % (extracted_folder_path, basename)).convert('L')
-        green = Image.open('%s/%s.vis-green.tif' % (extracted_folder_path, basename)).convert('L')
+        images = []
+        for date_range in date_ranges:
+            # perform satellite image processing
+            if satellite == 'landsat-8':
+                image = process_landsat8_image_series(date_range['from'], date_range['to'], resolved_province)
+            elif satellite == 'sentinel-2':
+                image = process_sentinel2_image_series(date_range['from'], date_range['to'], resolved_province)
+            else:
+                pass
 
-        processed_image_path = os.path.join(processed_image_folder, image['from'] + '.jpg')
+            # close the download settings and modify it
+            dl_settings = download_settings.copy()
+            dl_settings['name'] = 'ndvi-%s-%s-%s' % (satellite, date_range['from'], date_range['to'])
 
-        # create the folder inside the static folder
-        if not os.path.exists(processed_image_folder):
-            os.makedirs(processed_image_folder)
+            download_url = image.getDownloadURL(dl_settings)
 
-        # merge the separated channels to get the colored version
-        out = Image.merge("RGB", (red, green, blue))
-        out.save(processed_image_path)
+            downloaded_filename = os.path.join(tmp_path, dl_settings['name'] + '.zip')
 
-        # asseble the the url pointing to the image
-        processed_images[image['from']] = request.META['HTTP_HOST'] + string.replace(processed_image_path, os.getcwd(), '')
+            # download the files from the download url
+            zip_file = urllib2.urlopen(download_url)
+            with open(downloaded_filename, 'wb') as output:
+                output.write(zip_file.read())
 
-    # save some metadata for fetching the description later.
-    # This can be further improved by saving this to a database.
-    with open(os.path.join(processed_image_folder, 'metadata.json'), 'w') as metadata:
-        json.dump({
-            'satellite': satellite,
-            'date_from': startdate,
-            'date_to': enddate,
-            'date_ranges': date_ranges
-        }, metadata)
+            images.append({
+                'filename': downloaded_filename,
+                'from': date_range['from'],
+                'to': date_range['to']
+            })
 
-    # delete the tmp folder for the downloaded image
-    shutil.rmtree(tmp_path)
+        # unzip all downloaded files
+        for image in images:
+            basename = os.path.splitext(image['filename'])[0]
+            basename = os.path.basename(basename)
+
+            extracted_folder_path = '%s/%s-extracted' % (tmp_path, basename)
+
+            # extract the zip file in to the path specified
+            with zipfile.ZipFile(image['filename'], 'r') as zip_ref:
+                zip_ref.extractall(extracted_folder_path)
+
+            # find all R, G and B images, combine them, and save to the static directory
+            red = Image.open('%s/%s.vis-red.tif' % (extracted_folder_path, basename)).convert('L')
+            blue = Image.open('%s/%s.vis-blue.tif' % (extracted_folder_path, basename)).convert('L')
+            green = Image.open('%s/%s.vis-green.tif' % (extracted_folder_path, basename)).convert('L')
+
+            processed_image_path = os.path.join(processed_image_folder, image['from'] + '.jpg')
+
+            # create the folder inside the static folder
+            if not os.path.exists(processed_image_folder):
+                os.makedirs(processed_image_folder)
+
+            # merge the separated channels to get the colored version
+            out = Image.merge("RGB", (red, green, blue))
+            out.save(processed_image_path)
+
+            # asseble the the url pointing to the image
+            processed_images.append({
+                'date': image['from'],
+                'url': request.META['HTTP_HOST'] + string.replace(processed_image_path, os.getcwd(), '')
+            })
+
+        # save some metadata for fetching the description later.
+        # This can be further improved by saving this to a database.
+        with open(os.path.join(processed_image_folder, 'metadata.json'), 'w') as metadata:
+            json.dump({
+                'satellite': satellite,
+                'date_from': startdate,
+                'date_to': enddate,
+                'date_ranges': date_ranges
+            }, metadata)
+
+        # delete the tmp folder for the downloaded image
+        shutil.rmtree(tmp_path)
 
     return JsonResponse({
         'success': True,
