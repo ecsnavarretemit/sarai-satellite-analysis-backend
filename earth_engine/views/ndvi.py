@@ -34,7 +34,7 @@ def index(request):
 
 # /ndvi/download-image-series/<start-date>/<end-date>?satellite=landsat-8&dimensions=256x256&province=Isabela
 # satellites: landsat 8, sentinel 2, sentinel 1
-# @cache_page(60 * 60 * 24, cache="gee", key_prefix="ndvi_gee")
+@cache_page(60 * 60 * 24, cache="gee", key_prefix="ndvi_gee")
 def download_image_series(request, startdate, enddate):
     province = request.GET.get('province', None)
     satellite = request.GET.get('satellite', 'landsat-8')
@@ -50,6 +50,7 @@ def download_image_series(request, startdate, enddate):
     if not satellite in satellites:
         return JsonResponse({
             'success': False,
+            'truncated': False,
             'message': 'Invalid value for satellite. Allowed values are %s' % (', '.join(satellites))
         }, status=400)
 
@@ -67,6 +68,26 @@ def download_image_series(request, startdate, enddate):
     processed_image_folder = os.path.join(settings.STATIC_ROOT, 'earth-engine', download_hash)
     processed_images = []
 
+     # modify the day intervals of the satellite
+    if satellite == 'sentinel-1':
+        satellite_interval = 12
+    elif satellite == 'sentinel-2':
+        satellite_interval = 10
+
+    # get the list of possible date ranges starting from the start date to end date
+    date_ranges = get_date_ranges_list(startdate, enddate, satellite_interval)
+
+    # flag to determine if date was truncated or not
+    truncated = False
+
+    # limit the date ranges to the value of the settings if it exceeds
+    # and set the truncated flag to true
+    max_num_image = ee_settings.NDVI['IMAGE_EXTRACTION']['MAX_IMAGES']
+    if len(date_ranges) > max_num_image:
+        date_ranges = date_ranges[0:max_num_image]
+
+        truncated = True
+
     if os.path.exists(processed_image_folder):
         images_glob = os.path.join(processed_image_folder, '*.' + ee_settings.NDVI['IMAGE_EXTRACTION']['IMAGE_FORMAT'])
 
@@ -80,15 +101,6 @@ def download_image_series(request, startdate, enddate):
                 'url': request.META['HTTP_HOST'] + string.replace(image, os.getcwd(), '')
             })
     else:
-        # modify the day intervals of the satellite
-        if satellite == 'sentinel-1':
-            satellite_interval = 12
-        elif satellite == 'sentinel-2':
-            satellite_interval = 10
-
-        # get the list of possible date ranges starting from the start date to end date
-        date_ranges = get_date_ranges_list(startdate, enddate, satellite_interval)
-
         # split the dimensions request parameter and cast to integer
         dimensions = map(int, dimensions.split('x'))
 
@@ -191,6 +203,7 @@ def download_image_series(request, startdate, enddate):
 
     return JsonResponse({
         'success': True,
+        'truncated': truncated,
         'images': processed_images
     })
 

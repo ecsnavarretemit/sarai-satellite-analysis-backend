@@ -23,6 +23,7 @@ PROVINCES_FUSION_TABLES = {
 
 NDVI = {
     'IMAGE_EXTRACTION': {
+        'MAX_IMAGES': 12,
         'TMP_PATH': os.path.join(os.getcwd(), 'data/tmp/ee-download'),
         'IMAGE_FORMAT': 'jpg'
     }
