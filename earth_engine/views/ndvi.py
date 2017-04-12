@@ -18,6 +18,7 @@ import hashlib
 import ee
 from django.http import JsonResponse
 from django.conf import settings
+from django.views.decorators.cache import cache_page
 from earth_engine import EE_CREDENTIALS, settings as ee_settings
 from datetime import datetime, timedelta
 from PIL import Image
@@ -33,6 +34,7 @@ def index(request):
 
 # /ndvi/download-image-series/<start-date>/<end-date>?satellite=landsat-8&dimensions=256x256&province=Isabela
 # satellites: landsat 8, sentinel 2, sentinel 1
+@cache_page(60 * 60 * 24, cache="gee", key_prefix="ndvi_gee")
 def download_image_series(request, startdate, enddate):
     province = request.GET.get('province', None)
     satellite = request.GET.get('satellite', 'landsat-8')
