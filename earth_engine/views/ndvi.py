@@ -94,6 +94,9 @@ def download_image_series(request, startdate, enddate):
     if request.is_secure():
         scheme_and_host = '%s://%s' % ('https', request.META['HTTP_HOST'])
 
+    # check if folder is existing alreading for the requested images
+    # if yes, skip processing and just return the images
+    # if not, the do some processing
     if os.path.exists(processed_image_folder):
         images_glob = os.path.join(processed_image_folder, '*.' + ee_settings.NDVI['IMAGE_EXTRACTION']['IMAGE_FORMAT'])
 
