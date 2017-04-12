@@ -34,7 +34,7 @@ def index(request):
 
 # /ndvi/download-image-series/<start-date>/<end-date>?satellite=landsat-8&dimensions=256x256&province=Isabela
 # satellites: landsat 8, sentinel 2, sentinel 1
-@cache_page(60 * 60 * 24, cache="gee", key_prefix="ndvi_gee")
+# @cache_page(60 * 60 * 24, cache="gee", key_prefix="ndvi_gee")
 def download_image_series(request, startdate, enddate):
     province = request.GET.get('province', None)
     satellite = request.GET.get('satellite', 'landsat-8')
@@ -68,8 +68,10 @@ def download_image_series(request, startdate, enddate):
     processed_images = []
 
     if os.path.exists(processed_image_folder):
+        images_glob = os.path.join(processed_image_folder, '*.' + ee_settings.NDVI['IMAGE_EXTRACTION']['IMAGE_FORMAT'])
+
         # fetch all images in the directory and append it to the processed images list
-        for image in glob.glob(os.path.join(processed_image_folder, '*.jpg')):
+        for image in glob.glob(images_glob):
             basename = os.path.splitext(image)[0]
             basename = os.path.basename(basename)
 
@@ -101,7 +103,7 @@ def download_image_series(request, startdate, enddate):
         }
 
         # assemble the path where the downloaded files cound be saved
-        tmp_path = os.path.join(os.getcwd(), 'data/tmp/ee-download', download_hash)
+        tmp_path = os.path.join(ee_settings.NDVI['IMAGE_EXTRACTION']['TMP_PATH'], download_hash)
 
         if not os.path.exists(tmp_path):
             os.makedirs(tmp_path)
@@ -158,7 +160,7 @@ def download_image_series(request, startdate, enddate):
             blue = Image.open('%s/%s.vis-blue.tif' % (extracted_folder_path, basename)).convert('L')
             green = Image.open('%s/%s.vis-green.tif' % (extracted_folder_path, basename)).convert('L')
 
-            processed_image_path = os.path.join(processed_image_folder, image['from'] + '.jpg')
+            processed_image_path = os.path.join(processed_image_folder, image['from'] + '.' + ee_settings.NDVI['IMAGE_EXTRACTION']['IMAGE_FORMAT'])
 
             # create the folder inside the static folder
             if not os.path.exists(processed_image_folder):

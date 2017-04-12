@@ -16,4 +16,11 @@ EARTH_ENGINE_API = {
     ]
 }
 
+NDVI = {
+    'IMAGE_EXTRACTION': {
+        'TMP_PATH': os.path.join(os.getcwd(), 'data/tmp/ee-download'),
+        'IMAGE_FORMAT': 'jpg'
+    }
+}
+
 
