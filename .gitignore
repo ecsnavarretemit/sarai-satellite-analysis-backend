@@ -112,6 +112,7 @@ tags
 data
 _scripts
 earth_engine/settings.py
+earth_engine/private/creds/ee/*.p12
 static/earth-engine
 
 
