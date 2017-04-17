@@ -34,7 +34,7 @@ def index(request):
 
 # /ndvi/download-image-series/<start-date>/<end-date>?satellite=landsat-8&dimensions=256x256&province=Isabela
 # satellites: landsat 8, sentinel 2, sentinel 1
-@cache_page(60 * 60 * 24, cache="gee", key_prefix="ndvi_gee")
+# @cache_page(60 * 60 * 24, cache="gee", key_prefix="ndvi_gee")
 def download_image_series(request, startdate, enddate):
     province = request.GET.get('province', None)
     satellite = request.GET.get('satellite', 'landsat-8')
@@ -88,12 +88,6 @@ def download_image_series(request, startdate, enddate):
 
         truncated = True
 
-    # assemble the base url for the images
-    scheme_and_host = '%s://%s' % ('http', request.META['HTTP_HOST'])
-
-    if request.is_secure():
-        scheme_and_host = '%s://%s' % ('https', request.META['HTTP_HOST'])
-
     # check if folder is existing alreading for the requested images
     # if yes, skip processing and just return the images
     # if not, the do some processing
@@ -107,7 +101,7 @@ def download_image_series(request, startdate, enddate):
 
             processed_images.append({
                 'date': basename,
-                'url': scheme_and_host + string.replace(image, os.getcwd(), '')
+                'url': settings.STATIC_URL + string.replace(image, settings.STATIC_ROOT + '/', '')
             })
     else:
         # split the dimensions request parameter and cast to integer
@@ -194,7 +188,7 @@ def download_image_series(request, startdate, enddate):
             # asseble the the url pointing to the image
             processed_images.append({
                 'date': image['from'],
-                'url': scheme_and_host + string.replace(processed_image_path, os.getcwd(), '')
+                'url': settings.STATIC_URL + string.replace(processed_image_path, settings.STATIC_ROOT + '/', '')
             })
 
         # save some metadata for fetching the description later.
