@@ -170,19 +170,28 @@ def download_image_series(request, startdate, enddate):
             with zipfile.ZipFile(image['filename'], 'r') as zip_ref:
                 zip_ref.extractall(extracted_folder_path)
 
-            # find all R, G and B images, combine them, and save to the static directory
-            red = Image.open('%s/%s.vis-red.tif' % (extracted_folder_path, basename)).convert('L')
-            blue = Image.open('%s/%s.vis-blue.tif' % (extracted_folder_path, basename)).convert('L')
-            green = Image.open('%s/%s.vis-green.tif' % (extracted_folder_path, basename)).convert('L')
-
-            processed_image_path = os.path.join(processed_image_folder, image['from'] + '.' + ee_settings.NDVI['IMAGE_EXTRACTION']['IMAGE_FORMAT'])
+            red_img_path = '%s/%s.vis-red.tif' % (extracted_folder_path, basename)
+            blue_img_path = '%s/%s.vis-blue.tif' % (extracted_folder_path, basename)
+            green_img_path = '%s/%s.vis-green.tif' % (extracted_folder_path, basename)
+            gray_img_path = '%s/%s.vis-gray.tif' % (extracted_folder_path, basename)
 
             # create the folder inside the static folder
             if not os.path.exists(processed_image_folder):
                 os.makedirs(processed_image_folder)
 
-            # merge the separated channels to get the colored version
-            out = Image.merge("RGB", (red, green, blue))
+            processed_image_path = os.path.join(processed_image_folder, image['from'] + '.' + ee_settings.NDVI['IMAGE_EXTRACTION']['IMAGE_FORMAT'])
+
+            if os.path.exists(red_img_path) and os.path.exists(blue_img_path) and os.path.exists(green_img_path):
+                # find all R, G and B images, combine them, and save to the static directory
+                red = Image.open(red_img_path).convert('L')
+                blue = Image.open(blue_img_path).convert('L')
+                green = Image.open(green_img_path).convert('L')
+
+                # merge the separated channels to get the colored version
+                out = Image.merge("RGB", (red, green, blue))
+            else:
+                out = Image.open(gray_img_path).convert('L')
+
             out.save(processed_image_path)
 
             # asseble the the url pointing to the image
