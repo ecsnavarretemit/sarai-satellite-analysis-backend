@@ -283,12 +283,14 @@ def get_date_ranges_list(start_date, end_date, interval):
 
         # append the last possible date range
         if newend > enddate_py:
-            # make sure that the last date range from and to keys are not equal!!!
-            if begin.strftime('%Y-%m-%d') != end_date:
-                date_ranges.append({
-                    'from': begin.strftime('%Y-%m-%d'),
-                    'to': end_date,
-                })
+            last_date = {
+                'from': begin.strftime('%Y-%m-%d'),
+                'to': end_date,
+            }
+
+            # make sure that the last date range from and to keys are not equal and of valid range!!!
+            if last_date['from'] != end_date and begin < enddate_py:
+                date_ranges.append(last_date)
 
             break
 
