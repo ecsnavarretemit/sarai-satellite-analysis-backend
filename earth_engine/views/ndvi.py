@@ -138,7 +138,7 @@ def download_image_series(request, startdate, enddate):
             elif satellite == 'sentinel-2':
                 image = process_sentinel2_image_series(date_range['from'], date_range['to'], resolved_province)
             else:
-                pass
+                image = process_sentinel1_image_series(date_range['from'], date_range['to'], resolved_province)
 
             # close the download settings and modify it
             dl_settings = download_settings.copy()
@@ -235,7 +235,7 @@ def ndvi_mask(satellite):
         mask = data.eq(1)
 
         # generate different masks for different satellite data sources.
-        if satellite == 'landsat-8':
+        if satellite == 'landsat-8' or satellite == 'sentinel-1':
             derived_mask = image.updateMask(mask)
         elif satellite == 'sentinel-2':
             derived_mask = image.select().addBands(image.normalizedDifference(['B8', 'B4'])).updateMask(mask)
@@ -335,6 +335,23 @@ def process_sentinel2_image_series(start_date, end_date, clipping_geometry):
     # return the visualized instance of the image
     return reduced.visualize(['nd'], None, None, 0, 1, None, None, [
         'FFFFFF', 'CE7E45', 'FCD163', '66A000', '207401', '056201', '004C00', '023B01', '012E01', '011301'
+    ])
+
+def process_sentinel1_image_series(start_date, end_date, clipping_geometry):
+    geometry = get_par_geometry()
+
+    image_collection = ee.ImageCollection('COPERNICUS/S1_GRD')
+    filtered = image_collection.filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+
+    reduced = filtered.select('VV').filterDate('2017-03-01', '2017-03-02').filterBounds(geometry).map(ndvi_mask('sentinel-1')).mosaic()
+
+    # clip the image if clipping_geometry is provided
+    if clipping_geometry is not None:
+        reduced = reduced.clip(clipping_geometry)
+
+    # return the visualized instance of the image
+    return reduced.visualize(['VV'], None, None, -14, -9, None, None, [
+        '011301', '012E01', '023B01', '004C00', '00ff00', '207401', '66A000', 'FCD163', 'CE7E45', 'FFFFFF'
     ])
 
 #===================================================
