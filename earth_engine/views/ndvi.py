@@ -250,7 +250,23 @@ def get_province_geometry(province):
 
     found_province = ee.Filter.eq(ee_settings.PROVINCES_FUSION_TABLES['LOCATION_FUSION_TABLE_NAME_COLUMN'], province)
 
-    return province_ft.filter(found_province).geometry()
+    prov_geom = province_ft.filter(found_province).geometry()
+    prov_info = prov_geom.getInfo()
+
+    detected_max = prov_geom
+    if prov_info['type'] == 'MultiPolygon':
+        detected_max = None
+
+        # get the largest polygon in the collection of MultiPolygon
+        for coords in prov_info['coordinates']:
+            polygon = ee.Geometry.Polygon(coords[0])
+
+            if detected_max is None:
+                detected_max = polygon
+            elif detected_max.area() > polygon.area():
+                detected_max = polygon
+
+    return detected_max
 
 def get_par_geometry():
     geometric_bounds = ee.List([
