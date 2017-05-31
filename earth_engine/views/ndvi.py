@@ -159,6 +159,10 @@ def download_image_series(request, startdate, enddate):
                 'to': date_range['to']
             })
 
+        # create the folder inside the static folder
+        if not os.path.exists(processed_image_folder):
+            os.makedirs(processed_image_folder)
+
         # unzip all downloaded files
         for image in images:
             basename = os.path.splitext(image['filename'])[0]
@@ -174,10 +178,6 @@ def download_image_series(request, startdate, enddate):
             blue_img_path = '%s/%s.vis-blue.tif' % (extracted_folder_path, basename)
             green_img_path = '%s/%s.vis-green.tif' % (extracted_folder_path, basename)
             gray_img_path = '%s/%s.vis-gray.tif' % (extracted_folder_path, basename)
-
-            # create the folder inside the static folder
-            if not os.path.exists(processed_image_folder):
-                os.makedirs(processed_image_folder)
 
             processed_image_path = os.path.join(processed_image_folder, image['from'] + '.' + ee_settings.NDVI['IMAGE_EXTRACTION']['IMAGE_FORMAT'])
 
