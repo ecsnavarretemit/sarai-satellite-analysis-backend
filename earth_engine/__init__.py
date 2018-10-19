@@ -16,7 +16,7 @@ from . import settings
 ee_api_config = settings.EARTH_ENGINE_API
 
 if not os.path.exists(ee_api_config['PRIVATE_KEY']):
-    print "Private key file not found on path: %s" % ee_api_config['PRIVATE_KEY']
+    print("Private key file not found on path: %s" % ee_api_config['PRIVATE_KEY'])
     sys.exit(1)
 
 EE_CREDENTIALS = ServiceAccountCredentials.from_p12_keyfile(ee_api_config['ACCOUNT'],
