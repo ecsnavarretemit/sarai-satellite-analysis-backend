@@ -13,7 +13,7 @@ import random
 import string
 import shutil
 import zipfile
-import urllib2
+import urllib
 import hashlib
 import ee
 from django.http import JsonResponse
@@ -62,7 +62,7 @@ def download_image_series(request, startdate, enddate):
     secret_str = '%s-%s-%s-%s%s' % (startdate, enddate, satellite, dimensions, province_str)
 
     # concatenate the start date, end date and the random string and get the SHA 224 hash of it
-    download_hash = hashlib.sha224(secret_str).hexdigest()
+    download_hash = hashlib.sha224(str(secret_str).encode('utf-8')).hexdigest()
 
     # assemble the path where the processed images will be stored
     processed_image_folder = os.path.join(settings.STATIC_ROOT, 'earth-engine', download_hash)
@@ -101,7 +101,7 @@ def download_image_series(request, startdate, enddate):
 
             processed_images.append({
                 'date': basename,
-                'url': settings.STATIC_URL + string.replace(image, settings.STATIC_ROOT + '/', '')
+                'url': settings.STATIC_URL + os.path.relpath(image, settings.STATIC_ROOT + '/')
             })
     else:
         # split the dimensions request parameter and cast to integer
@@ -113,7 +113,7 @@ def download_image_series(request, startdate, enddate):
         download_settings = {
             'name': 'ndvi-' + satellite,
             'crs': 'EPSG:4326',
-            'dimensions': dimensions,
+            'dimensions': list(dimensions),
             'region': get_par_geometry().getInfo()['coordinates']
         }
 
@@ -149,7 +149,7 @@ def download_image_series(request, startdate, enddate):
             downloaded_filename = os.path.join(tmp_path, dl_settings['name'] + '.zip')
 
             # download the files from the download url
-            zip_file = urllib2.urlopen(download_url)
+            zip_file = urllib.urlopen(download_url)
             with open(downloaded_filename, 'wb') as output:
                 output.write(zip_file.read())
 
@@ -197,7 +197,7 @@ def download_image_series(request, startdate, enddate):
             # asseble the the url pointing to the image
             processed_images.append({
                 'date': image['from'],
-                'url': settings.STATIC_URL + string.replace(processed_image_path, settings.STATIC_ROOT + '/', '')
+                'url': settings.STATIC_URL + os.path.relpath(processed_image_path, settings.STATIC_ROOT + '/')
             })
 
         # save some metadata for fetching the description later.
