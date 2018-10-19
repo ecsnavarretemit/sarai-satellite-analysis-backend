@@ -1,0 +1,32 @@
+# settings.py
+#
+# Copyright(c) Exequiel Ceasar Navarrete <esnavarrete1@up.edu.ph>
+# Licensed under MIT
+# Version 0.0.0
+
+from django.conf import settings
+
+EARTH_ENGINE_API = {
+    'ACCOUNT': 'email@google.iam.gserviceaccount.com',
+    'PRIVATE_KEY': '',
+    'KEY_SECRET': '',
+    'SCOPES': [
+        'https://www.googleapis.com/auth/earthengine',
+        'https://www.googleapis.com/auth/devstorage.read_write'
+    ]
+}
+
+PROVINCES_FUSION_TABLES = {
+    'LOCATION_METADATA_FUSION_TABLE': '',
+    'LOCATION_FUSION_TABLE_NAME_COLUMN': ''
+}
+
+NDVI = {
+    'IMAGE_EXTRACTION': {
+        'MAX_IMAGES': 12,
+        'TMP_PATH': os.path.join(os.getcwd(), 'data/tmp/ee-download'),
+        'IMAGE_FORMAT': 'jpg'
+    }
+}
+
+
